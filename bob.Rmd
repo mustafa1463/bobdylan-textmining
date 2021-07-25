@@ -1,0 +1,272 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<br>
+<br>
+<p id = "head">A Text Analysis of Bob Dylan Songs</p><br>
+<p id = "subhead">By Genesis Data</p><br>
+<img src="https://i4.hurimg.com/i/hurriyet/75/750x422/59313b0618c77307fc1942ec.jpg" alt="Bob Dylan" class="center"><br>
+<p id = "baez"><em>"So thank you for writing the best songs  
+Thank you for righting a few wrongs  
+You're a savage gift on a wayward bus  
+But you stepped down and you sang to us  
+And get you down to the harbor now  
+Most of the sour grapes are gone from the bough  
+Ghosts of Johanna will visit you there  
+And the winds of the old days will blow through your hair"</em><p><br>
+
+
+<p><strong>Bob Dylan </strong>(born Robert Allen Zimmerman; May 24, 1941) is an American singer-songwriter, author and visual artist. Often regarded as one of the greatest songwriters of all time, Dylan has been a major figure in popular culture during a career spanning nearly 60 years. Much of his most celebrated work dates from the 1960s, when songs such as "Blowin' in the Wind" (1963) and "The Times They Are a-Changin'" (1964) became anthems for the civil rights and anti-war movements. His lyrics during this period incorporated a range of political, social, philosophical, and literary influences, defying pop music conventions and appealing to the burgeoning counterculture.</p>
+<p>He was awarded <strong>Nobel Prize in Literature</strong> <em>"for having created new poetic expressions within the great American song tradition" (Wikipedia)</em></p><br>
+<p>Let's make a text analysis using his songs!</p> <br>
+
+<p><strong>1.Importing Required the Libraries</strong></p>
+
+```{r echo = TRUE, message = FALSE}
+
+library(pdftools)
+library(dplyr)
+library(tidytext)
+library(readtext)
+library(tm)
+library(ggplot2)
+library(tidyr)
+library(reshape2)
+library(wordcloud2)
+data(stop_words)
+```
+<br>
+
+<p><strong>2.Inspect the lyrics & divide them into words (i.e. tokens)</strong></p>
+
+```{r echo = TRUE, message = FALSE}
+#Inspect the book 
+
+book <- pdftools::pdf_text("http://www.passwordpublish.co.uk/Publishing%20ebook/dylanlyrics.pdf")
+dylan_words <- tibble(line = 1:length(book), text = book)
+
+lyrics <- dylan_words %>% 
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = TRUE)
+
+#Further delete the words like "he's", "i'm", "you're":
+
+lyrics <- lyrics[-c(1,2, 3, 4, 5, 7, 9, 12, 13, 14, 16, 24), ] 
+
+#Hence, the most frequently used words by Bob Dylan 
+lyrics
+
+```
+<br>
+
+<p><strong>3.Visualize the frequently used words</strong></p>
+
+```{r echo = TRUE, message = FALSE, fig.dim = c(10, 6)}
+lyrics_graph <-  lyrics %>% 
+  filter(n > 110) %>% 
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = word)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "Frequency", y = "Word", title = "Frequently Used Words in Songs by Bob Dylan") +
+  theme(panel.background = element_rect(color = "black", fill = "black"),
+        plot.background = element_rect(fill = 'black', colour = 'black'),
+        plot.title = element_text(size = rel(2), hjust = 0.5, margin = margin(b = 15, t = 0, r = 0, l = 0), colour = "white"), 
+        axis.title.y = element_text(margin = margin(r = 15), size = 20, colour = "white"),
+        axis.title.x = element_text(margin = margin(t = 15), size = 20, colour = "white"),
+        plot.caption = element_text(size = 15),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(colour = "white", size = 12, face="bold"),
+        axis.text.y = element_text(colour = "white", size = 12, face="bold" ),
+        axis.line = element_line(color="white", size = 1.5),
+        axis.ticks = element_blank())
+
+lyrics_graph
+```
+<br><br>
+  
+<br><p>Seems that love is by far the most lovely outcome!</p><br>
+
+<p><strong>4.Sentiment Analysis</strong></p>
+
+```{r echo = TRUE, message = FALSE, fig.dim = c(10, 6)}
+#Row-bind the sentiment dataframes
+lyrics_sentiment <- lyrics %>%
+  inner_join(get_sentiments("afinn")) %>% 
+  inner_join(get_sentiments("bing"))
+
+#Note that some words who are not sentimental are removed here automatically. These words are words like "eyes", "time", etc.  
+#Make another column called the sent, which is equal to n * value (weighted frequency)
+
+lyrics_sentiment$sent <- lyrics_sentiment$n * lyrics_sentiment$value
+lyrics_sentiment
+```
+<br>
+
+```{r echo = TRUE, message = FALSE, fig.dim = c(10, 6)}
+lyrics_sentiment_graph <- lyrics_sentiment %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Frequency", y = "Word", title = "A Sentiment Analysis of Bob Dylan Songs") + 
+  theme(panel.background = element_rect(color = "black", fill = "black"),
+        plot.background = element_rect(fill = 'black', colour = 'black'),
+        plot.title = element_text(size = rel(2), hjust = 0.5, margin = margin(b = 15, t = 0, r = 0, l = 0), colour = "white"), 
+        axis.title.y = element_text(margin = margin(r = 15), size = 20, colour = "white"),
+        axis.title.x = element_text(margin = margin(t = 15), size = 20, colour = "white"),
+        plot.caption = element_text(size = 15),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(colour = "white", size = 12, face="bold"),
+        axis.text.y = element_text(colour = "white", size = 12, face="bold" ),
+        axis.line = element_line(color="white", size = 1.5),
+        strip.text.x = element_text(size = 12, color = "white", face = "bold"),
+        strip.text.y = element_text(size = 12, color = "white", face = "bold"),
+        strip.background = element_rect(color = "black", fill = "black"),
+        axis.ticks = element_blank()) +
+        scale_fill_manual(values= c("#f0009c","#f0009c"))
+lyrics_sentiment_graph
+```
+<br><br><br>  
+  
+Let's check the overall value of the sentiments (i.e Positivity + Negativity of all)
+  
+```{r echo = TRUE, message = FALSE, fig.dim = c(10, 6)}
+sum(lyrics_sentiment$sent)
+```
+<br>  
+  
+<p>...Bob seems to be very pessimistic!</p><br>
+
+<p><strong>5.Another approach (By the weighted frequencies)</strong></p>
+
+```{r echo = TRUE, message = FALSE, fig.dim = c(10, 6)}
+lyrics_sentiment <- lyrics_sentiment[order(lyrics_sentiment$sent),]
+negative_outliers <- lyrics_sentiment[1:10,]
+lyrics_sentiment <- lyrics_sentiment[order(-lyrics_sentiment$sent),]
+positive_outliers <- lyrics_sentiment[1:10,]
+
+outliers <- rbind(negative_outliers, positive_outliers)
+outliers$sent <- abs(outliers$sent)
+
+outliers_graph <- outliers %>% 
+  group_by(sentiment) %>% 
+  mutate(word = reorder(word, sent)) %>% 
+  ggplot(aes(sent, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Weighted Frequency",
+       y = "Words") + 
+  theme(panel.background = element_rect(color = "black", fill = "black"),
+        plot.background = element_rect(fill = 'black', colour = 'black'),
+        plot.title = element_text(size = rel(2), hjust = 0.5, margin = margin(b = 15, t = 0, r = 0, l = 0), colour = "white"), 
+        axis.title.y = element_text(margin = margin(r = 15), size = 20, colour = "white"),
+        axis.title.x = element_text(margin = margin(t = 15), size = 20, colour = "white"),
+        plot.caption = element_text(size = 15),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(colour = "white", size = 12, face="bold"),
+        axis.text.y = element_text(colour = "white", size = 12, face="bold" ),
+        axis.line = element_line(color="white", size = 1.5),
+        strip.text.x = element_text(size = 12, color = "white", face = "bold"),
+        strip.text.y = element_text(size = 12, color = "white", face = "bold"),
+        strip.background = element_rect(color = "black", fill = "black"),
+        axis.ticks = element_blank()) +
+  scale_fill_manual(values= c("#f0009c","#f0009c"))
+  
+outliers_graph
+```
+<br>  
+<br>
+<br><p>Dead & love had the highest weighted frequencies. It is a good coincidence with Tom Waits' song Dead and Lovely.</p><br>
+  
+<p><strong>6.Build a WordCloud shaping a star!</strong></p>  
+```{r echo = TRUE, message = FALSE, fig.dim = c(9.5, 6)}
+wordcloud <- wordcloud2(lyrics[1:25,], color = "random-light", backgroundColor = "black", fontWeight = "bold", rotateRatio = 0.7,
+           shape = "star", ellipticity = 1)
+
+wordcloud
+```
+<br>
+  
+<p><strong>7. Create Biagrams</strong></p>  
+```{r echo = TRUE, message = FALSE, fig.dim = c(9.5, 6)}
+lyrics_biagram <- dylan_words %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2) %>% 
+  count(bigram, sort = TRUE) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word) %>% 
+  unite(bigram, word1, word2, sep = " ")
+
+lyrics_biagram
+
+bigrams_graph <- lyrics_biagram[1:20,] %>% 
+  mutate(bigram = reorder(bigram, n)) %>% 
+  ggplot(aes(n, bigram, group = 1)) +
+  geom_col(show.legend = FALSE, fill = '#f0009c') +
+  labs(x = "Frequency", y = "Bigrams", title = "Biagrams in Bob Dylan's Songs") + 
+  theme(panel.background = element_rect(color = "black", fill = "black"),
+        plot.background = element_rect(fill = 'black', colour = 'black'),
+        plot.title = element_text(size = rel(2), hjust = 0.5, margin = margin(b = 15, t = 0, r = 0, l = 0), colour = "white"), 
+        axis.title.y = element_text(margin = margin(r = 15), size = 20, colour = "white"),
+        axis.title.x = element_text(margin = margin(t = 15), size = 20, colour = "white"),
+        plot.caption = element_text(size = 15),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(colour = "white", size = 12, face="bold"),
+        axis.text.y = element_text(colour = "white", size = 12, face="bold" ),
+        axis.line = element_line(color="white", size = 1.5),
+        strip.text.x = element_text(size = 12, color = "white", face = "bold"),
+        strip.text.y = element_text(size = 12, color = "white", face = "bold"),
+        strip.background = element_rect(color = "black", fill = "black"),
+        axis.ticks = element_blank())
+
+bigrams_graph  
+```
+<br>  
+  
+<br><p>"Sarah Jane" is one of the most used bigrams in Bob Dylan's songs. We know that she was the first wife of Bob Dylan, later to be called "Sarah Dylan"!</p><br>
+
+<p>The analysis suggests that the love is one of the main themes in Bob Dylan's songs, and that these songs are most likely to be pessimistic since the words "dead", "die", "trouble", and the bigrams like "stop crying", "trouble trouble", "hard times" occur a lot. </p><br>
+<br>  
+
+```{css, echo = FALSE}
+
+#head {
+text-align: center;
+font-size: 35px;
+font-weight: bold;
+font-family: "Lucida Console", "Courier New", monospace;}
+
+#subhead {
+text-align: right;
+font-size: 25px;
+font-weight: bold;
+font-family: "Lucida Console", "Courier New", monospace;}
+
+p {
+font-size: 20px;
+font-family: "Lucida Console", "Courier New", monospace;
+}
+
+#baez {
+text-align: center;
+font-size: 20px;
+font-family: "Lucida Console", "Courier New", monospace;}
+
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+```
